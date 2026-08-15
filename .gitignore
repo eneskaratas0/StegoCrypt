@@ -2,6 +2,8 @@ __pycache__/
 *.py[cod]
 *.egg-info/
 .pytest_cache/
+.mypy_cache/
+.ruff_cache/
 .venv/
 venv/
 .env
@@ -9,6 +11,14 @@ venv/
 htmlcov/
 dist/
 build/
+
+# IDE / editor
+.vscode/
+.idea/
+
+# OS
+.DS_Store
+Thumbs.db
 
 # Ornek/test ciktilari
 examples/output/*

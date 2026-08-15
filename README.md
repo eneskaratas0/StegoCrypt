@@ -8,12 +8,12 @@ LSB (Least Significant Bit) steganografi ile AES-256 sifrelemeyi birlestiren bir
 StegoCrypt/
 ├── core/
 │   ├── __init__.py
-│   ├── crypto.py        # AES-256 sifreleme ve anahtar turetme fonksiyonlari
-│   ├── stego.py         # LSB algoritmasi, bit manipulasyonu, encode/decode
-│   └── exceptions.py    # Ozel exception siniflari
+│   ├── crypto.py        # AES-256-CBC + HMAC-SHA256 sifreleme ve PBKDF2 anahtar turetme (tamamlandi)
+│   ├── stego.py         # LSB algoritmasi, bit manipulasyonu, encode/decode (tamamlandi)
+│   └── exceptions.py    # Ozel exception siniflari (CapacityError, DecryptionError, StegoDataError)
 ├── utils/
 │   ├── __init__.py
-│   └── helpers.py       # Binary-String donusumleri, dogrulama, resim format kontrolu
+│   └── helpers.py       # Binary-String donusumleri, dogrulama, resim format kontrolu (planlanan)
 ├── tests/                # Birim testler
 │   ├── test_crypto.py
 │   └── test_stego.py
@@ -22,10 +22,17 @@ StegoCrypt/
 │   └── output/           # Uretilen cikti gorselleri
 ├── docs/                 # Dokumantasyon
 ├── main.py               # Giris noktasi (cli.main() cagirir)
-├── cli.py                # Terminalden komut satiri ile kullanim (argparse)
+├── cli.py                # Terminalden komut satiri ile kullanim (argparse; encode/decode planlanan)
 ├── requirements.txt      # Gerekli kutuphaneler (Pillow, cryptography, numpy, pytest)
 └── README.md
 ```
+
+## Durum
+
+- ✅ `core/crypto.py` — AES-256-CBC sifreleme, PBKDF2HMAC ile anahtar turetme, Encrypt-then-MAC (HMAC-SHA256) dogrulama
+- ✅ `core/stego.py` — LSB tabanli encode/decode, 32-bit uzunluk basligi, kapasite kontrolu
+- 🚧 `utils/helpers.py` — bit/byte donusumleri ve format dogrulama fonksiyonlari henuz uygulanmadi
+- 🚧 `cli.py` — `encode`/`decode` komutlari henuz `core` ve `utils` modullerine baglanmadi
 
 ## Kurulum
 
