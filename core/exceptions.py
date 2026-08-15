@@ -11,3 +11,7 @@ class CapacityError(StegoCryptError):
 
 class DecryptionError(StegoCryptError):
     """Sifre cozme basarisiz (yanlis parola veya bozuk veri)."""
+
+
+class StegoDataError(StegoCryptError):
+    """Gorselde gecerli bir gizli veri bulunamadi (bozuk veya eksik LSB baslik)."""
