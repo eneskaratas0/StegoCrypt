@@ -23,3 +23,10 @@ Thumbs.db
 # Ornek/test ciktilari
 examples/output/*
 !examples/output/.gitkeep
+
+# Tailwind standalone CLI (indirilirse; frontend/static/app.css onceden
+# derlenmis halde repoya dahildir, bu yuzden normal kullanimda gerekmez --
+# sadece frontend/index.html veya app.js'e yeni bir Tailwind sinifi eklenip
+# yeniden derlenecekse indirilir: https://github.com/tailwindlabs/tailwindcss/releases)
+tailwindcss.exe
+tailwindcss-*

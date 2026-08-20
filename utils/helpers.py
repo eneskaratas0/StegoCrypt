@@ -5,7 +5,7 @@ from __future__ import annotations
 from PIL import Image
 
 from core.exceptions import StegoDataError
-from core.stego import LENGTH_HEADER_BITS, ImageSource
+from core.stego import LENGTH_HEADER_BITS, ImageSource, describe_image_source, IMAGE_OPEN_ERRORS
 
 
 def calculate_capacity(image_path: ImageSource) -> int:
@@ -19,8 +19,8 @@ def calculate_capacity(image_path: ImageSource) -> int:
     try:
         with Image.open(image_path) as img:
             width, height = img.size
-    except OSError as exc:
-        raise StegoDataError(f"Gorsel acilamadi veya gecersiz: {image_path}") from exc
+    except IMAGE_OPEN_ERRORS as exc:
+        raise StegoDataError(f"Gorsel acilamadi veya gecersiz: {describe_image_source(image_path)}") from exc
 
     total_bits = width * height * 3
     payload_bits = total_bits - LENGTH_HEADER_BITS

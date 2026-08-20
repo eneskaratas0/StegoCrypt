@@ -1,0 +1,2 @@
+# Bu dosya, dizin bos oldugunda bile git tarafindan takip edilmesi icin var.
+# Buraya uretilen cikti gorselleri .gitignore tarafindan haric tutulur.

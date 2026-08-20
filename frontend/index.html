@@ -1,0 +1,351 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>StegoCrypt</title>
+<meta name="description" content="Mesajlarinizi sifreleyip PNG gorsellerin icine gizleyin.">
+
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@600;700;800&family=Exo+2:wght@400;500;600;700&display=swap" rel="stylesheet">
+
+<!--
+  Tailwind onceden derlenmis: /static/app.css, hicbir runtime CDN script'i
+  calismaz (parola/mesaj alanlarini iceren bu sayfada tedarik zinciri riskini
+  onlemek icin). Yeniden derlemek icin (yeni bir Tailwind sinifi eklendiginde):
+    tailwindcss.exe -i frontend/tailwind-src.css -o frontend/static/app.css
+      --config frontend/tailwind.config.js --minify
+  (standalone CLI, Node/npm gerekmez: https://github.com/tailwindlabs/tailwindcss/releases)
+-->
+<link rel="stylesheet" href="/static/app.css">
+
+<style>
+  html { color-scheme: dark; }
+  body {
+    background-color: #0F172A;
+    background-image:
+      radial-gradient(circle at 15% 10%, rgba(139, 92, 246, 0.18), transparent 45%),
+      radial-gradient(circle at 85% 85%, rgba(245, 158, 11, 0.14), transparent 45%);
+    background-attachment: fixed;
+  }
+
+  .glass {
+    background: rgba(15, 23, 42, 0.55);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(248, 250, 252, 0.12);
+  }
+
+  .glass-solid {
+    background: rgba(15, 23, 42, 0.78);
+    backdrop-filter: blur(16px);
+    -webkit-backdrop-filter: blur(16px);
+    border: 1px solid rgba(248, 250, 252, 0.12);
+  }
+
+  /* Focus ring: keep it visible everywhere, don't strip outlines */
+  :focus-visible {
+    outline: 2px solid #FBBF24;
+    outline-offset: 2px;
+    border-radius: 4px;
+  }
+
+  input[type="file"]::file-selector-button {
+    cursor: pointer;
+  }
+
+  .spinner {
+    border: 3px solid rgba(248, 250, 252, 0.2);
+    border-top-color: #F59E0B;
+    border-radius: 9999px;
+    width: 1.25rem;
+    height: 1.25rem;
+    animation: spin 0.8s linear infinite;
+  }
+
+  @keyframes spin {
+    to { transform: rotate(360deg); }
+  }
+
+  .fade-in {
+    animation: fadeIn 0.2s ease-out;
+  }
+
+  @keyframes fadeIn {
+    from { opacity: 0; transform: translateY(-4px); }
+    to { opacity: 1; transform: translateY(0); }
+  }
+
+  @media (prefers-reduced-motion: reduce) {
+    *, *::before, *::after {
+      animation-duration: 0.001ms !important;
+      animation-iteration-count: 1 !important;
+      transition-duration: 0.001ms !important;
+      scroll-behavior: auto !important;
+    }
+  }
+
+  ::-webkit-scrollbar { width: 10px; height: 10px; }
+  ::-webkit-scrollbar-track { background: transparent; }
+  ::-webkit-scrollbar-thumb { background: rgba(248,250,252,0.18); border-radius: 9999px; }
+</style>
+</head>
+<body class="font-body text-ink min-h-screen antialiased">
+
+<div class="min-h-screen flex flex-col">
+
+  <!-- Header -->
+  <header class="border-b border-white/10">
+    <div class="max-w-4xl mx-auto px-4 sm:px-6 py-5 flex items-center gap-3">
+      <span class="inline-flex items-center justify-center w-11 h-11 rounded-xl glass text-amber shrink-0" aria-hidden="true">
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-6 h-6">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 2.25c-2.6 1.5-5.1 2.1-7.5 2.1v6.4c0 5.2 3.2 8.8 7.5 10.75 4.3-1.95 7.5-5.55 7.5-10.75v-6.4c-2.4 0-4.9-.6-7.5-2.1Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9.75 12.75 11.25 14.25 14.5 10.5" />
+        </svg>
+      </span>
+      <div>
+        <h1 class="font-display font-bold tracking-wide text-xl sm:text-2xl text-ink">STEGO<span class="text-amber">CRYPT</span></h1>
+        <p class="text-xs sm:text-sm text-slate-300">AES-256-CBC + HMAC-SHA256 sifreleme, LSB steganografi</p>
+      </div>
+    </div>
+  </header>
+
+  <main class="flex-1 max-w-4xl w-full mx-auto px-4 sm:px-6 py-8 sm:py-10">
+
+    <!-- Tabs -->
+    <div role="tablist" aria-label="StegoCrypt islemleri" class="glass rounded-2xl p-1.5 flex gap-1.5 mb-6 max-w-md mx-auto">
+      <button
+        type="button"
+        id="tab-encode"
+        role="tab"
+        aria-selected="true"
+        aria-controls="panel-encode"
+        class="tab-btn flex-1 min-h-11 rounded-xl font-semibold text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer transition-colors duration-200 bg-amber text-bg"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 15.75a3 3 0 1 0 0-6 3 3 0 0 0 0 6Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M6.75 10.5V8.25a5.25 5.25 0 1 1 10.5 0v2.25M5.25 10.5h13.5a1.5 1.5 0 0 1 1.5 1.5v7.5a1.5 1.5 0 0 1-1.5 1.5H5.25a1.5 1.5 0 0 1-1.5-1.5V12a1.5 1.5 0 0 1 1.5-1.5Z" />
+        </svg>
+        Sifrele &amp; Gizle
+      </button>
+      <button
+        type="button"
+        id="tab-decode"
+        role="tab"
+        aria-selected="false"
+        aria-controls="panel-decode"
+        class="tab-btn flex-1 min-h-11 rounded-xl font-semibold text-sm sm:text-base flex items-center justify-center gap-2 cursor-pointer transition-colors duration-200 text-slate-200 hover:bg-white/5"
+      >
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" class="w-5 h-5" aria-hidden="true">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 10.5V6.75a3.75 3.75 0 1 1 7.5 0v3.75M4.5 10.5h15v9a1.5 1.5 0 0 1-1.5 1.5h-12A1.5 1.5 0 0 1 4.5 19.5v-9Z" />
+          <path stroke-linecap="round" stroke-linejoin="round" d="M12 14.25v2.25" />
+        </svg>
+        Cikar &amp; Coz
+      </button>
+    </div>
+
+    <!-- ============ ENCODE PANEL ============ -->
+    <section id="panel-encode" role="tabpanel" aria-labelledby="tab-encode" class="glass-solid rounded-2xl p-5 sm:p-7 fade-in">
+      <form id="encode-form" novalidate>
+
+        <div id="encode-error" class="hidden mb-5 rounded-xl border border-red-400/30 bg-red-950/50 text-red-100 px-4 py-3 flex items-start gap-3" role="alert"></div>
+        <div id="encode-success" class="hidden mb-5 rounded-xl border border-emerald-400/30 bg-emerald-950/50 text-emerald-100 px-4 py-3 flex items-start gap-3" role="status"></div>
+
+        <!-- Cover image -->
+        <div class="mb-6">
+          <label for="encode-image" class="block text-sm font-semibold mb-2 text-slate-200">Kapak gorseli</label>
+          <label for="encode-image" class="cursor-pointer flex items-center gap-3 rounded-xl border border-dashed border-white/25 hover:border-amber/60 bg-white/5 px-4 py-4 transition-colors duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-6 h-6 text-amber shrink-0" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V4.5m0 0-3.75 3.75M12 4.5l3.75 3.75" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75v2.25a2.25 2.25 0 0 0 2.25 2.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-2.25" />
+            </svg>
+            <span class="flex-1 text-sm">
+              <span id="encode-image-label" class="block font-medium">Gorsel secmek icin tiklayin</span>
+              <span class="block text-slate-400 text-xs mt-0.5">PNG onerilir. Cikti her zaman PNG olur.</span>
+            </span>
+          </label>
+          <input type="file" id="encode-image" name="image" accept="image/*" class="sr-only" />
+
+          <div id="encode-preview-wrap" class="hidden mt-3 flex items-start gap-4">
+            <img id="encode-preview" alt="Secilen kapak gorseli onizlemesi" width="112" height="112" class="w-28 h-28 rounded-lg object-cover border border-white/15 shrink-0" />
+            <div class="text-sm space-y-1 pt-1">
+              <p id="encode-capacity" class="text-slate-200" aria-live="polite"></p>
+              <p id="encode-capacity-error" class="hidden text-red-300" aria-live="polite"></p>
+              <p id="encode-preview-error" class="hidden text-red-300" aria-live="polite">Bu dosya bir gorsel olarak gorunmuyor.</p>
+            </div>
+          </div>
+        </div>
+
+        <!-- Message -->
+        <div class="mb-6">
+          <label for="encode-message" class="block text-sm font-semibold mb-2 text-slate-200">Mesaj</label>
+          <textarea
+            id="encode-message"
+            name="message"
+            rows="5"
+            class="w-full rounded-xl bg-white/5 border border-white/15 px-4 py-3 text-ink placeholder:text-slate-500 focus:border-amber/60 transition-colors duration-200 resize-y"
+            placeholder="Gizlenecek mesajinizi yazin..."
+            aria-describedby="encode-byte-counter encode-capacity-warning"
+          ></textarea>
+          <div class="mt-1.5 flex items-center justify-between text-xs">
+            <span id="encode-byte-counter" class="text-slate-400">0 bayt</span>
+            <span id="encode-capacity-warning" class="hidden text-red-300 font-medium" aria-live="polite"></span>
+          </div>
+        </div>
+
+        <!-- Passwords -->
+        <div class="grid sm:grid-cols-2 gap-4 mb-2">
+          <div>
+            <label for="encode-password" class="block text-sm font-semibold mb-2 text-slate-200">Parola</label>
+            <input
+              type="password"
+              id="encode-password"
+              name="password"
+              autocomplete="new-password"
+              class="w-full min-h-11 rounded-xl bg-white/5 border border-white/15 px-4 py-2.5 text-ink placeholder:text-slate-500 focus:border-amber/60 transition-colors duration-200"
+              placeholder="Guclu bir parola girin"
+            />
+          </div>
+          <div>
+            <label for="encode-password-confirm" class="block text-sm font-semibold mb-2 text-slate-200">Parola (tekrar)</label>
+            <input
+              type="password"
+              id="encode-password-confirm"
+              name="password_confirm"
+              autocomplete="new-password"
+              class="w-full min-h-11 rounded-xl bg-white/5 border border-white/15 px-4 py-2.5 text-ink placeholder:text-slate-500 focus:border-amber/60 transition-colors duration-200"
+              placeholder="Parolayi tekrar girin"
+            />
+          </div>
+        </div>
+        <p id="encode-password-mismatch" class="hidden text-xs text-red-300 mb-4" aria-live="polite">Parolalar eslesmiyor.</p>
+        <div class="mb-6"></div>
+
+        <!-- Submit -->
+        <button
+          type="submit"
+          id="encode-submit"
+          aria-describedby="encode-capacity-warning encode-password-mismatch encode-loading-note"
+          class="w-full min-h-12 rounded-xl bg-violet hover:bg-violet/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors duration-200"
+        >
+          <span id="encode-submit-spinner" class="spinner hidden" aria-hidden="true"></span>
+          <span id="encode-submit-label">Sifrele ve Gizle</span>
+        </button>
+        <p id="encode-loading-note" class="hidden mt-3 text-xs text-slate-400 text-center" aria-live="polite">
+          Parola 600.000 PBKDF2 turundan geciriliyor, bu birkac saniye surebilir. Sayfa donmadi, lutfen bekleyin.
+        </p>
+
+        <!-- Result preview -->
+        <div id="encode-result-wrap" class="hidden mt-6 pt-6 border-t border-white/10">
+          <p class="text-sm font-semibold text-slate-200 mb-3">Olusan stego gorseli</p>
+          <img id="encode-result-image" alt="Mesaj gizlenmis cikti gorseli" width="256" height="256" class="w-full max-w-xs rounded-xl border border-white/15 object-contain bg-black/20" />
+          <p id="encode-result-error" class="hidden text-red-300 text-sm mt-2" aria-live="polite">Onizleme yuklenemedi, ancak indirme baglantisi kullanilabilir olabilir.</p>
+          <a
+            id="encode-download-link"
+            download="stego.png"
+            class="mt-3 inline-flex min-h-11 items-center gap-2 rounded-xl bg-white/10 hover:bg-white/15 px-4 text-sm font-semibold cursor-pointer transition-colors duration-200"
+          >
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V4.5m0 0-3.75 3.75M12 4.5l3.75 3.75" transform="rotate(180 12 10.5)" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75v2.25a2.25 2.25 0 0 0 2.25 2.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-2.25" />
+            </svg>
+            stego.png indir
+          </a>
+        </div>
+      </form>
+    </section>
+
+    <!-- ============ DECODE PANEL ============ -->
+    <section id="panel-decode" role="tabpanel" aria-labelledby="tab-decode" class="glass-solid rounded-2xl p-5 sm:p-7 fade-in hidden">
+      <form id="decode-form" novalidate>
+
+        <div id="decode-error" class="hidden mb-5 rounded-xl border border-red-400/30 bg-red-950/50 text-red-100 px-4 py-3 flex items-start gap-3" role="alert"></div>
+
+        <!-- Stego image -->
+        <div class="mb-6">
+          <label for="decode-image" class="block text-sm font-semibold mb-2 text-slate-200">Stego gorseli</label>
+          <label for="decode-image" class="cursor-pointer flex items-center gap-3 rounded-xl border border-dashed border-white/25 hover:border-amber/60 bg-white/5 px-4 py-4 transition-colors duration-200">
+            <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-6 h-6 text-amber shrink-0" aria-hidden="true">
+              <path stroke-linecap="round" stroke-linejoin="round" d="M12 16.5V4.5m0 0-3.75 3.75M12 4.5l3.75 3.75" />
+              <path stroke-linecap="round" stroke-linejoin="round" d="M4.5 15.75v2.25a2.25 2.25 0 0 0 2.25 2.25h10.5a2.25 2.25 0 0 0 2.25-2.25v-2.25" />
+            </svg>
+            <span class="flex-1 text-sm">
+              <span id="decode-image-label" class="block font-medium">Gorsel secmek icin tiklayin</span>
+              <span class="block text-slate-400 text-xs mt-0.5">Icinde gizli mesaj bulunan PNG</span>
+            </span>
+          </label>
+          <input type="file" id="decode-image" name="image" accept="image/*" class="sr-only" />
+
+          <div id="decode-preview-wrap" class="hidden mt-3">
+            <img id="decode-preview" alt="Secilen stego gorseli onizlemesi" width="112" height="112" class="w-28 h-28 rounded-lg object-cover border border-white/15" />
+            <p id="decode-preview-error" class="hidden text-red-300 text-sm mt-2" aria-live="polite">Bu dosya bir gorsel olarak gorunmuyor.</p>
+          </div>
+        </div>
+
+        <!-- Password -->
+        <div class="mb-6">
+          <label for="decode-password" class="block text-sm font-semibold mb-2 text-slate-200">Parola</label>
+          <input
+            type="password"
+            id="decode-password"
+            name="password"
+            autocomplete="current-password"
+            class="w-full min-h-11 rounded-xl bg-white/5 border border-white/15 px-4 py-2.5 text-ink placeholder:text-slate-500 focus:border-amber/60 transition-colors duration-200"
+            placeholder="Sifreleme sirasinda kullanilan parola"
+          />
+        </div>
+
+        <!-- Submit -->
+        <button
+          type="submit"
+          id="decode-submit"
+          aria-describedby="decode-loading-note"
+          class="w-full min-h-12 rounded-xl bg-violet hover:bg-violet/90 disabled:opacity-50 disabled:cursor-not-allowed text-white font-semibold flex items-center justify-center gap-2 cursor-pointer transition-colors duration-200"
+        >
+          <span id="decode-submit-spinner" class="spinner hidden" aria-hidden="true"></span>
+          <span id="decode-submit-label">Cikar ve Coz</span>
+        </button>
+        <p id="decode-loading-note" class="hidden mt-3 text-xs text-slate-400 text-center" aria-live="polite">
+          Parola 600.000 PBKDF2 turundan geciriliyor, bu birkac saniye surebilir. Sayfa donmadi, lutfen bekleyin.
+        </p>
+
+        <!-- Result -->
+        <div id="decode-result-wrap" class="hidden mt-6 pt-6 border-t border-white/10">
+          <div class="flex items-center justify-between mb-2">
+            <p class="text-sm font-semibold text-slate-200">Cozulen mesaj</p>
+            <button
+              type="button"
+              id="decode-copy-btn"
+              class="min-h-9 px-3 rounded-lg bg-white/10 hover:bg-white/15 text-xs font-semibold flex items-center gap-1.5 cursor-pointer transition-colors duration-200"
+            >
+              <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" class="w-4 h-4" aria-hidden="true">
+                <path stroke-linecap="round" stroke-linejoin="round" d="M15.75 17.25v1.5a1.5 1.5 0 0 1-1.5 1.5h-9a1.5 1.5 0 0 1-1.5-1.5v-9a1.5 1.5 0 0 1 1.5-1.5h1.5" />
+                <path stroke-linecap="round" stroke-linejoin="round" d="M8.25 5.25a1.5 1.5 0 0 1 1.5-1.5h9a1.5 1.5 0 0 1 1.5 1.5v9a1.5 1.5 0 0 1-1.5 1.5h-9a1.5 1.5 0 0 1-1.5-1.5v-9Z" />
+              </svg>
+              <span id="decode-copy-label">Kopyala</span>
+            </button>
+          </div>
+          <textarea
+            id="decode-result-message"
+            readonly
+            rows="6"
+            class="w-full rounded-xl bg-black/25 border border-white/15 px-4 py-3 text-ink resize-y"
+          ></textarea>
+        </div>
+      </form>
+    </section>
+
+  </main>
+
+  <footer class="border-t border-white/10 py-5">
+    <p class="max-w-4xl mx-auto px-4 sm:px-6 text-xs text-slate-400 text-center">
+      Gorseller, parolalar ve mesajlar yalnizca tarayicinizda ve istek sirasinda islenir; sunucuda saklanmaz.
+    </p>
+  </footer>
+
+</div>
+
+<script src="/static/app.js"></script>
+</body>
+</html>

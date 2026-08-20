@@ -17,6 +17,23 @@ MAX_PAYLOAD_BYTES = 2**32 - 1  # 32-bit baslikla ifade edilebilecek azami veri b
 # orn. io.BytesIO) nesneleri sorunsuz kabul eder; imzalar bunu yansitir.
 ImageSource = str | os.PathLike[str] | BinaryIO
 
+# Image.open, gecersiz/bozuk goruntülerde OSError disinda Exception'dan turetilmis
+# DecompressionBombError da firlatabilir (asiri buyuk beyan edilmis piksel boyutu
+# icin, gercek dosya kucuk olsa bile) -- her iki durumu da ayni sekilde ele aliriz.
+IMAGE_OPEN_ERRORS = (OSError, Image.DecompressionBombError)
+
+
+def describe_image_source(source: ImageSource) -> str:
+    """Hata mesajlarinda gosterilecek kaynak tanimini uretir.
+
+    Dosya yolu ise oldugu gibi, dosya-benzeri (orn. io.BytesIO -- API'de yuklenen
+    goruntuler icin kullanilir) bir nesne ise Python repr'ini (bellek adresi vb.)
+    disariya sizdirmamak icin genel bir aciklama dondurur.
+    """
+    if isinstance(source, (str, os.PathLike)):
+        return str(source)
+    return "yuklenen gorsel"
+
 
 def _bytes_to_bits(data: bytes) -> np.ndarray:
     """Byte dizisini MSB-once sirali 0/1 bit dizisine cevirir."""
@@ -45,8 +62,8 @@ def encode(image_path: ImageSource, data: bytes, output_path: ImageSource) -> No
     try:
         with Image.open(image_path) as img:
             image = img.convert("RGB")
-    except OSError as exc:
-        raise StegoDataError(f"Kapak gorseli acilamadi veya gecersiz: {image_path}") from exc
+    except IMAGE_OPEN_ERRORS as exc:
+        raise StegoDataError(f"Kapak gorseli acilamadi veya gecersiz: {describe_image_source(image_path)}") from exc
 
     pixels = np.array(image, dtype=np.uint8)
     flat = pixels.reshape(-1)
@@ -66,7 +83,7 @@ def encode(image_path: ImageSource, data: bytes, output_path: ImageSource) -> No
     try:
         Image.fromarray(encoded_pixels, mode="RGB").save(output_path, format="PNG")
     except OSError as exc:
-        raise StegoDataError(f"Cikti gorseli yazilamadi: {output_path}") from exc
+        raise StegoDataError(f"Cikti gorseli yazilamadi: {describe_image_source(output_path)}") from exc
 
 
 def decode(image_path: ImageSource) -> bytes:
@@ -87,8 +104,8 @@ def decode(image_path: ImageSource) -> bytes:
     try:
         with Image.open(image_path) as img:
             image = img.convert("RGB")
-    except OSError as exc:
-        raise StegoDataError(f"Gorsel acilamadi veya gecersiz: {image_path}") from exc
+    except IMAGE_OPEN_ERRORS as exc:
+        raise StegoDataError(f"Gorsel acilamadi veya gecersiz: {describe_image_source(image_path)}") from exc
 
     flat = np.array(image, dtype=np.uint8).reshape(-1)
 
