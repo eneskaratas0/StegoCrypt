@@ -5,15 +5,16 @@ from __future__ import annotations
 from PIL import Image
 
 from core.exceptions import StegoDataError
-from core.stego import LENGTH_HEADER_BITS
+from core.stego import LENGTH_HEADER_BITS, ImageSource
 
 
-def calculate_capacity(image_path: str) -> int:
+def calculate_capacity(image_path: ImageSource) -> int:
     """Gorselin LSB ile gizleyebilecegi maksimum byte miktarini hesaplar.
 
     core.stego.encode ile ayni piksel-bit yerlesimini esas alir: sadece RGB
     kanallari (alfa haric) kullanilir ve 32-bit uzunluk basligi icin ayrilan
-    yer dusulur.
+    yer dusulur. image_path dosya yolu (str/os.PathLike) veya dosya-benzeri
+    (orn. io.BytesIO) bir nesne olabilir.
     """
     try:
         with Image.open(image_path) as img:

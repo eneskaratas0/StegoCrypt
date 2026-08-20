@@ -2,6 +2,7 @@ import numpy as np
 import pytest
 from PIL import Image
 
+import cli
 from cli import main
 from core import crypto
 from core.stego import LENGTH_HEADER_BITS
@@ -258,4 +259,30 @@ def test_encode_with_mismatched_password_confirmation_exits_nonzero(tmp_path, mo
 
     assert exc_info.value.code == 1
     assert "eslesmiyor" in capsys.readouterr().err
+    assert not output.exists()
+
+
+def test_main_handles_unexpected_exception_gracefully(tmp_path, monkeypatch, capsys):
+    cover = _make_image(tmp_path / "cover.png", 32, 32)
+    output = tmp_path / "stego.png"
+
+    def _boom(*args, **kwargs):
+        raise RuntimeError("beklenmeyen hata simulasyonu")
+
+    monkeypatch.setattr(cli.crypto, "encrypt", _boom)
+
+    with pytest.raises(SystemExit) as exc_info:
+        _run(
+            monkeypatch,
+            [
+                "encode",
+                "--image", str(cover),
+                "--message", "gizli veri",
+                "--output", str(output),
+                "--password", "parola",
+            ],
+        )
+
+    assert exc_info.value.code == 1
+    assert "Beklenmeyen hata" in capsys.readouterr().err
     assert not output.exists()

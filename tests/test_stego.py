@@ -1,3 +1,5 @@
+import io
+
 import numpy as np
 import pytest
 from PIL import Image
@@ -102,6 +104,18 @@ def test_decode_non_image_file_raises(tmp_path):
 def test_encode_with_nonexistent_cover_image_raises(tmp_path):
     with pytest.raises(StegoDataError):
         stego.encode(str(tmp_path / "olmayan.png"), b"veri", str(tmp_path / "out.png"))
+
+
+def test_encode_decode_roundtrip_with_file_like_objects(tmp_path):
+    cover_path = _make_image(tmp_path / "cover.png", 32, 32)
+    cover_buffer = io.BytesIO(cover_path.read_bytes())
+    output_buffer = io.BytesIO()
+    data = b"gizli mesaj: BytesIO ile"
+
+    stego.encode(cover_buffer, data, output_buffer)
+    output_buffer.seek(0)
+
+    assert stego.decode(output_buffer) == data
 
 
 def test_encode_with_unwritable_output_path_raises(tmp_path):

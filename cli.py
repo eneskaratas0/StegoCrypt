@@ -91,7 +91,11 @@ def main() -> None:
     decode_parser.set_defaults(func=decode_command)
 
     args = parser.parse_args()
-    args.func(args)
+    try:
+        args.func(args)
+    except Exception as exc:
+        print(f"Beklenmeyen hata: {exc}", file=sys.stderr)
+        sys.exit(1)
 
 
 if __name__ == "__main__":

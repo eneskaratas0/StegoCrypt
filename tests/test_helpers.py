@@ -1,3 +1,5 @@
+import io
+
 import numpy as np
 import pytest
 from PIL import Image
@@ -38,6 +40,13 @@ def test_calculate_capacity_ignores_alpha_channel(tmp_path):
     cover_rgba = _make_image(tmp_path / "rgba.png", 8, 8, mode="RGBA")
 
     assert helpers.calculate_capacity(str(cover_rgb)) == helpers.calculate_capacity(str(cover_rgba))
+
+
+def test_calculate_capacity_with_file_like_object(tmp_path):
+    cover = _make_image(tmp_path / "cover.png", 10, 4)
+    buffer = io.BytesIO(cover.read_bytes())
+
+    assert helpers.calculate_capacity(buffer) == helpers.calculate_capacity(str(cover))
 
 
 def test_calculate_capacity_with_nonexistent_image_raises(tmp_path):

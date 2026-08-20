@@ -2,6 +2,9 @@
 
 from __future__ import annotations
 
+import os
+from typing import BinaryIO
+
 import numpy as np
 from PIL import Image
 
@@ -9,6 +12,10 @@ from core.exceptions import CapacityError, StegoDataError
 
 LENGTH_HEADER_BITS = 32  # veri uzunlugunu tasiyan big-endian baslik boyutu (bit)
 MAX_PAYLOAD_BYTES = 2**32 - 1  # 32-bit baslikla ifade edilebilecek azami veri boyutu
+
+# Image.open/save (Pillow) dosya yolu, os.PathLike ve dosya-benzeri (BinaryIO,
+# orn. io.BytesIO) nesneleri sorunsuz kabul eder; imzalar bunu yansitir.
+ImageSource = str | os.PathLike[str] | BinaryIO
 
 
 def _bytes_to_bits(data: bytes) -> np.ndarray:
@@ -21,13 +28,16 @@ def _bits_to_bytes(bits: np.ndarray) -> bytes:
     return np.packbits(bits).tobytes()
 
 
-def encode(image_path: str, data: bytes, output_path: str) -> None:
+def encode(image_path: ImageSource, data: bytes, output_path: ImageSource) -> None:
     """Veriyi gorselin en dusuk anlamli bitlerine (LSB) gizler ve output_path'e PNG olarak yazar.
 
     Bit duzeni: once 32-bit big-endian uzunluk basligi (verinin byte cinsinden
     boyutu), ardindan verinin kendisi gelir. Bitler gorselin RGB kanallarinin
     duzlestirilmis byte dizisine sirayla, her byte'in en dusuk anlamli bitine
     gomulur (alfa kanali -- varsa -- saydamligin bozulmamasi icin kullanilmaz).
+
+    image_path/output_path dosya yolu (str/os.PathLike) veya dosya-benzeri
+    (orn. io.BytesIO) bir nesne olabilir -- Image.open/save ikisini de kabul eder.
     """
     if len(data) > MAX_PAYLOAD_BYTES:
         raise CapacityError("Veri, 32-bit uzunluk basligiyla ifade edilemeyecek kadar buyuk")
@@ -59,8 +69,11 @@ def encode(image_path: str, data: bytes, output_path: str) -> None:
         raise StegoDataError(f"Cikti gorseli yazilamadi: {output_path}") from exc
 
 
-def decode(image_path: str) -> bytes:
+def decode(image_path: ImageSource) -> bytes:
     """Gorselin LSB'lerinden daha once gizlenmis veriyi cikarir.
+
+    image_path dosya yolu (str/os.PathLike) veya dosya-benzeri (orn. io.BytesIO)
+    bir nesne olabilir.
 
     encode() tarafindan gomulen 32-bit big-endian uzunluk basligi + veri
     duzenini bekler. Okunan uzunluk gorselin tasiyabilecegi bit sayisini
