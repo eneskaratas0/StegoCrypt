@@ -3,6 +3,13 @@
 core.crypto, core.stego ve utils.helpers dogrudan sarilir (cli.py atlanir).
 Yuklenen goruntuler ve cikti PNG'leri sadece bellekteki io.BytesIO nesnelerinde
 tutulur; hicbir yere (diske, loga) goruntu, parola veya mesaj yazilmaz.
+
+crypto.encrypt/decrypt (PBKDF2, 600k iterasyon, ~200ms) ve stego.encode/decode
+(numpy islemleri) senkron, CPU-agirlikli fonksiyonlardir; dogrudan bir
+`async def` route icinde cagrilirlarsa FastAPI'nin tek event loop thread'ini
+o sure boyunca bloke ederler -- bu da o sirada gelen butun diger istekleri
+(static dosya sunumu dahil) sıraya sokar. run_in_threadpool ile bir worker
+thread'ine devredilerek event loop bosta tutulur.
 """
 
 from __future__ import annotations
@@ -10,6 +17,7 @@ from __future__ import annotations
 import io
 
 from fastapi import APIRouter, Form, HTTPException, UploadFile
+from fastapi.concurrency import run_in_threadpool
 from fastapi.responses import Response
 
 from core import crypto, stego
@@ -35,7 +43,7 @@ async def _read_upload(image: UploadFile) -> io.BytesIO:
 @router.post("/capacity")
 async def capacity(image: UploadFile) -> dict[str, int]:
     image_bytes = await _read_upload(image)
-    capacity_bytes = helpers.calculate_capacity(image_bytes)
+    capacity_bytes = await run_in_threadpool(helpers.calculate_capacity, image_bytes)
     return {"capacity_bytes": capacity_bytes}
 
 
@@ -46,7 +54,7 @@ async def encode(image: UploadFile, message: str = Form(...), password: str = Fo
 
     image_bytes = await _read_upload(image)
 
-    capacity_bytes = helpers.calculate_capacity(image_bytes)
+    capacity_bytes = await run_in_threadpool(helpers.calculate_capacity, image_bytes)
     image_bytes.seek(0)
 
     needed = crypto.encrypted_length(len(message.encode("utf-8")))
@@ -56,10 +64,10 @@ async def encode(image: UploadFile, message: str = Form(...), password: str = Fo
             f"gorsel en fazla {capacity_bytes} bayt tasiyabilir."
         )
 
-    token = crypto.encrypt(message, password)
+    token = await run_in_threadpool(crypto.encrypt, message, password)
 
     output_buf = io.BytesIO()
-    stego.encode(image_bytes, token, output_buf)
+    await run_in_threadpool(stego.encode, image_bytes, token, output_buf)
 
     return Response(
         content=output_buf.getvalue(),
@@ -71,6 +79,6 @@ async def encode(image: UploadFile, message: str = Form(...), password: str = Fo
 @router.post("/decode")
 async def decode(image: UploadFile, password: str = Form(...)) -> dict[str, str]:
     image_bytes = await _read_upload(image)
-    token = stego.decode(image_bytes)
-    message = crypto.decrypt(token, password)
+    token = await run_in_threadpool(stego.decode, image_bytes)
+    message = await run_in_threadpool(crypto.decrypt, token, password)
     return {"message": message}
