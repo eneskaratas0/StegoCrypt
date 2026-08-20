@@ -104,6 +104,16 @@ def test_encode_with_nonexistent_cover_image_raises(tmp_path):
         stego.encode(str(tmp_path / "olmayan.png"), b"veri", str(tmp_path / "out.png"))
 
 
+def test_encode_with_unwritable_output_path_raises(tmp_path):
+    cover = _make_image(tmp_path / "cover.png", 16, 16)
+    output = tmp_path / "olmayan_dizin" / "cikti.png"
+
+    with pytest.raises(StegoDataError):
+        stego.encode(str(cover), b"veri", str(output))
+
+    assert not output.exists()
+
+
 def test_decode_image_without_embedded_data_raises(tmp_path):
     path = tmp_path / "garbage_header.png"
     pixels = np.zeros((4, 4, 3), dtype=np.uint8)

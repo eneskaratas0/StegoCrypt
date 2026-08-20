@@ -1,17 +1,54 @@
 """StegoCrypt komut satiri arayuzu."""
 
 import argparse
+import getpass
+import sys
 
 from core import crypto, stego
-from utils import helpers
+from core.exceptions import StegoCryptError
+
+
+def _prompt_new_password() -> str:
+    password = getpass.getpass("Parola: ")
+    confirm = getpass.getpass("Parola (tekrar): ")
+    if password != confirm:
+        print("Hata: Parolalar eslesmiyor.", file=sys.stderr)
+        sys.exit(1)
+    return password
 
 
 def encode_command(args: argparse.Namespace) -> None:
-    raise NotImplementedError
+    if not args.output.lower().endswith(".png"):
+        print(
+            "Hata: --output dosyasi '.png' uzantili olmalidir (cikti her zaman PNG olarak yazilir).",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    message = args.message if args.message is not None else input("Gizlenecek mesaj: ")
+    password = args.password if args.password is not None else _prompt_new_password()
+
+    try:
+        token = crypto.encrypt(message, password)
+        stego.encode(args.image, token, args.output)
+    except StegoCryptError as exc:
+        print(f"Hata: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    print(f"Mesaj '{args.output}' dosyasina gizlendi.")
 
 
 def decode_command(args: argparse.Namespace) -> None:
-    raise NotImplementedError
+    password = args.password if args.password is not None else getpass.getpass("Parola: ")
+
+    try:
+        token = stego.decode(args.image)
+        message = crypto.decrypt(token, password)
+    except StegoCryptError as exc:
+        print(f"Hata: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    print(message)
 
 
 def main() -> None:
@@ -20,14 +57,20 @@ def main() -> None:
 
     encode_parser = subparsers.add_parser("encode", help="Veriyi sifrele ve goruntuye gizle")
     encode_parser.add_argument("--image", required=True, help="Kaynak goruntu dosyasi")
-    encode_parser.add_argument("--message", required=True, help="Gizlenecek mesaj veya dosya")
+    encode_parser.add_argument(
+        "--message", help="Gizlenecek mesaj (verilmezse interaktif olarak sorulur)"
+    )
     encode_parser.add_argument("--output", required=True, help="Cikti goruntu dosyasi")
-    encode_parser.add_argument("--password", required=True, help="AES-256 parolasi")
+    encode_parser.add_argument(
+        "--password", help="AES-256 parolasi (verilmezse interaktif olarak sorulur ve dogrulama istenir)"
+    )
     encode_parser.set_defaults(func=encode_command)
 
     decode_parser = subparsers.add_parser("decode", help="Goruntuden veriyi cikar ve sifresini coz")
     decode_parser.add_argument("--image", required=True, help="Sifreli veri iceren goruntu")
-    decode_parser.add_argument("--password", required=True, help="AES-256 parolasi")
+    decode_parser.add_argument(
+        "--password", help="AES-256 parolasi (verilmezse interaktif olarak sorulur)"
+    )
     decode_parser.set_defaults(func=decode_command)
 
     args = parser.parse_args()

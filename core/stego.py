@@ -53,7 +53,10 @@ def encode(image_path: str, data: bytes, output_path: str) -> None:
     flat[: all_bits.size] = (flat[: all_bits.size] & 0xFE) | all_bits
     encoded_pixels = flat.reshape(pixels.shape)
 
-    Image.fromarray(encoded_pixels, mode="RGB").save(output_path, format="PNG")
+    try:
+        Image.fromarray(encoded_pixels, mode="RGB").save(output_path, format="PNG")
+    except OSError as exc:
+        raise StegoDataError(f"Cikti gorseli yazilamadi: {output_path}") from exc
 
 
 def decode(image_path: str) -> bytes:
