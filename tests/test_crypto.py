@@ -63,6 +63,13 @@ def test_encrypt_decrypt_unicode_plaintext():
     assert crypto.decrypt(token, "parola") == plaintext
 
 
+@pytest.mark.parametrize("plaintext", ["", "a", "gizli mesaj: StegoCrypt 123", "öğrenmek 🔒" * 5])
+def test_encrypted_length_matches_actual_encrypt_output(plaintext):
+    predicted = crypto.encrypted_length(len(plaintext.encode("utf-8")))
+
+    assert len(crypto.encrypt(plaintext, "parola")) == predicted
+
+
 def test_decrypt_with_zero_length_ciphertext_raises():
     # salt(16) + iv(16) + mac(32) = 64 byte, ciphertext icin hic yer yok
     token = os.urandom(crypto.SALT_SIZE + crypto.IV_SIZE + crypto.MAC_SIZE)

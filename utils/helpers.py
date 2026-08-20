@@ -1,25 +1,26 @@
-"""Binary-string donusumleri, dogrulama ve resim format kontrolu."""
+"""Gorsel kapasite hesaplama yardimci fonksiyonu."""
 
 from __future__ import annotations
 
-SUPPORTED_FORMATS = {"PNG", "BMP"}
+from PIL import Image
 
-
-def bytes_to_bits(data: bytes) -> str:
-    """Byte dizisini '0101...' seklinde bit dizesine cevirir."""
-    raise NotImplementedError
-
-
-def bits_to_bytes(bits: str) -> bytes:
-    """Bit dizesini ('0101...') byte dizisine cevirir."""
-    raise NotImplementedError
-
-
-def is_supported_image(image_path: str) -> bool:
-    """Gorsel formatinin LSB gizleme icin uygun olup olmadigini kontrol eder (PNG/BMP gibi kayipsiz formatlar)."""
-    raise NotImplementedError
+from core.exceptions import StegoDataError
+from core.stego import LENGTH_HEADER_BITS
 
 
 def calculate_capacity(image_path: str) -> int:
-    """Gorselin LSB ile gizleyebilecegi maksimum byte miktarini hesaplar."""
-    raise NotImplementedError
+    """Gorselin LSB ile gizleyebilecegi maksimum byte miktarini hesaplar.
+
+    core.stego.encode ile ayni piksel-bit yerlesimini esas alir: sadece RGB
+    kanallari (alfa haric) kullanilir ve 32-bit uzunluk basligi icin ayrilan
+    yer dusulur.
+    """
+    try:
+        with Image.open(image_path) as img:
+            width, height = img.size
+    except OSError as exc:
+        raise StegoDataError(f"Gorsel acilamadi veya gecersiz: {image_path}") from exc
+
+    total_bits = width * height * 3
+    payload_bits = total_bits - LENGTH_HEADER_BITS
+    return max(payload_bits, 0) // 8

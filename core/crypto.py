@@ -20,6 +20,16 @@ BLOCK_SIZE = algorithms.AES.block_size // 8  # 16 byte
 PBKDF2_ITERATIONS = 600_000  # OWASP 2026 PBKDF2-HMAC-SHA256 onerisi
 
 
+def encrypted_length(plaintext_byte_len: int) -> int:
+    """encrypt() ciktisinin, sifreleme calistirmadan, tam olarak kac bayt olacagini hesaplar.
+
+    Cagiranlarin (orn. CLI'nin kapasite on-kontrolu) PBKDF2 anahtar turetmesini
+    (600k iterasyon) calistirmadan once erken basarisiz olabilmesi icin kullanilir.
+    """
+    padded_len = (plaintext_byte_len // BLOCK_SIZE + 1) * BLOCK_SIZE
+    return SALT_SIZE + IV_SIZE + padded_len + MAC_SIZE
+
+
 def derive_keys(password: str, salt: bytes) -> tuple[bytes, bytes]:
     """Parola ve salt'tan tek PBKDF2 cagrisiyla ayri sifreleme ve MAC anahtarlari turetir."""
     master = PBKDF2HMAC(

@@ -6,6 +6,7 @@ import sys
 
 from core import crypto, stego
 from core.exceptions import StegoCryptError
+from utils import helpers
 
 
 def _prompt_new_password() -> str:
@@ -26,6 +27,22 @@ def encode_command(args: argparse.Namespace) -> None:
         sys.exit(1)
 
     message = args.message if args.message is not None else input("Gizlenecek mesaj: ")
+
+    try:
+        capacity = helpers.calculate_capacity(args.image)
+    except StegoCryptError as exc:
+        print(f"Hata: {exc}", file=sys.stderr)
+        sys.exit(1)
+
+    needed = crypto.encrypted_length(len(message.encode("utf-8")))
+    if needed > capacity:
+        print(
+            f"Hata: Gorsel yetersiz kapasiteye sahip: sifrelenmis mesaj {needed} bayt, "
+            f"gorsel en fazla {capacity} bayt tasiyabilir.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
     password = args.password if args.password is not None else _prompt_new_password()
 
     try:
